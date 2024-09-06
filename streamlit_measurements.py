@@ -5,6 +5,8 @@ from datetime import datetime
 from sdmetrics.reports.single_table import QualityReport
 from sdv.metadata import SingleTableMetadata
 from SyntheticDataGenerator import SyntheticDataGenerator
+from io import StringIO
+import psycopg2
 
 
 # Utility functions
@@ -65,6 +67,41 @@ def generate_downloadable_csv(dataframe):
         file_name='synthetic_data.csv',
         mime='text/csv'
     )
+
+# Function to save DataFrame to PostgreSQL
+def save_to_postgres(synthetic_data_df: pd.DataFrame, table_name: str = 'synthetic_data'):
+    # Database connection details
+    db_url = st.secrets["DATABASE_URL"]  # Fetching from environment variables
+
+    # Create connection
+    conn = psycopg2.connect(db_url)
+    cursor = conn.cursor()
+
+    # Create table if not exists
+    create_table_query = f'''
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id SERIAL PRIMARY KEY,
+        time TIMESTAMP,
+        interval INTEGER,
+        data JSONB
+    );
+    '''
+    cursor.execute(create_table_query)
+
+    # Convert DataFrame to CSV format for bulk insertion
+    csv_data = StringIO()
+    synthetic_data_df.to_csv(csv_data, index=False, header=False)
+    csv_data.seek(0)
+
+    # Insert data into PostgreSQL
+    cursor.copy_expert(f"COPY {table_name} FROM STDIN WITH CSV", csv_data)
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    st.success(f"Synthetic data saved to PostgreSQL table '{table_name}'")
+
 
 
 # Load metadata
@@ -143,6 +180,8 @@ def main():
                         st.session_state['synthetic_data'] = synthetic_data_with_time
                         generate_downloadable_csv(
                             st.session_state['generator'].postprocess_timestamps(synthetic_data_with_time.copy()))
+                        if st.button("Save to PostgreSQL"):
+                            save_to_postgres(st.session_state['synthetic_data'])
                         st.success("Synthetic data generated successfully.")
                     except Exception as e:
                         st.error(f"Error during data generation: {e}")
