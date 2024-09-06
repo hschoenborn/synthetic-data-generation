@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit_generic as st
 import pandas as pd
 from DataAccessor import DataAccessor  # Ensure the DataAccessor class is in a file named data_accessor.py
 
