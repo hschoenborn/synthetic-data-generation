@@ -3,4 +3,5 @@ streamlit~=1.36.0
 sdmetrics~=0.15.0
 sdv~=1.15.0
 plotly~=5.23.0
-psycopg2-binary~=2.9.6
+psycopg2-binary~=2.9.7
+sqlalchemy~=2.0.23

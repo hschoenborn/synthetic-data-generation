@@ -1,37 +1,20 @@
-# Use official Python 3.10 image as base
+# Use the official Python image.
 FROM python:3.10.14-slim
 
-# Set working directory
+# Set the working directory in the container.
 WORKDIR /app
 
-# Copy requirements.txt to the working directory
-COPY requirements.txt .
+# Copy the requirements file into the container.
+COPY requirements.txt ./requirements.txt
 
-# Install dependencies
+# Install the dependencies.
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all source code to the working directory
-COPY . .
+# Copy the application code into the container.
+COPY . /app
 
-# Use environment variable for port
-ARG DEFAULT_PORT=8501
-ENV PORT=${DEFAULT_PORT}
-
-# Enable permissions for correct file handling in container
-ENV STREAMLIT_SERVER_ENABLE_CORS=false
-
-RUN mkdir -p ~/.streamlit
-RUN echo "\
-[server]\n\
-headless = true\n\
-enableCORS=false\n\
-enableXsrfProtection=false\n\
-port = ${PORT}\n\
-maxUploadSize=1028\n\
-" > ~/.streamlit/config.toml
-
-# Expose port 8501 for the Streamlit app
+# Expose port 8501 for Streamlit.
 EXPOSE 8501
 
-# Command to run the Streamlit app
+# Run the Streamlit app.
 CMD ["streamlit", "run", "streamlit_measurements.py", "--server.port=8501", "--server.address=0.0.0.0"]

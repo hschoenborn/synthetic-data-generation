@@ -1,9 +1,9 @@
-version: '3'
+version: '3.8'
 
 services:
   app:
     build: .
-    container_name: synthetic_data_app
+    container_name: streamlit_app
     ports:
       - "8501:8501"
     volumes:
@@ -11,17 +11,17 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/synthetic_data_db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/synthetic_data_db
 
   db:
     image: postgres:14
-    container_name: synthetic_data_db
+    container_name: postgres_db
     environment:
-      POSTGRES_DB: synthetic_data_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=synthetic_data_db
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Expose port 5432 of the container on port 5433 of the host
     volumes:
       - pgdata:/var/lib/postgresql/data
 

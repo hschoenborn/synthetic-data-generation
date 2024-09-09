@@ -5,15 +5,23 @@ from datetime import datetime
 from sdmetrics.reports.single_table import QualityReport
 from sdv.metadata import SingleTableMetadata
 from SyntheticDataGenerator import SyntheticDataGenerator
-from io import StringIO
-import psycopg2
+from database import SessionLocal, create_tables, SyntheticDataFile
+from sqlalchemy.orm import Session
+from value_triple_mapping import ValueTripleMapping
+import os
 
+# Initialize the database
+create_tables()
+
+# Load metadata
+with open('metadata_dict_measurements.json', 'r') as f:
+    metadata_dict = json.load(f)
+
+# Initialize ValueTripleMapping
+value_triple_mapping = ValueTripleMapping().get_mapping()
 
 # Utility functions
 def preprocess_timestamps(df: pd.DataFrame, column: str = 'Time') -> pd.DataFrame:
-    """
-    Convert timestamps from milliseconds to human-readable format.
-    """
     df[column] = df[column].apply(
         lambda x: datetime.utcfromtimestamp(x / 1000).strftime('%Y-%m-%d %H:%M:%S')
     )
@@ -21,9 +29,6 @@ def preprocess_timestamps(df: pd.DataFrame, column: str = 'Time') -> pd.DataFram
 
 
 def filter_metadata(metadata_dict, selected_columns):
-    """
-    Filter metadata to include only the specified columns.
-    """
     return {
         "METADATA_SPEC_VERSION": metadata_dict["METADATA_SPEC_VERSION"],
         "columns": {k: v for k, v in metadata_dict["columns"].items() if k in selected_columns}
@@ -31,9 +36,6 @@ def filter_metadata(metadata_dict, selected_columns):
 
 
 def get_selected_columns(value_triples, mapping, slim_columns_only):
-    """
-    Generate lists of selected columns for data generation and display.
-    """
     selected_columns_for_generation = []
     selected_columns_for_display = ["Time", "Interval"]
 
@@ -49,17 +51,11 @@ def get_selected_columns(value_triples, mapping, slim_columns_only):
 
 
 def upload_and_process_file(uploaded_file, column='Time'):
-    """
-    Handle file upload and timestamp processing.
-    """
     real_data_df = pd.read_csv(uploaded_file, delimiter=';')
     return preprocess_timestamps(real_data_df, column=column)
 
 
 def generate_downloadable_csv(dataframe):
-    """
-    Create a downloadable CSV file for synthetic data.
-    """
     csv = dataframe.to_csv(index=False).encode('utf-8')
     return st.download_button(
         label="Download Synthetic Data as CSV",
@@ -68,75 +64,30 @@ def generate_downloadable_csv(dataframe):
         mime='text/csv'
     )
 
-# Function to save DataFrame to PostgreSQL
-def save_to_postgres(synthetic_data_df: pd.DataFrame, table_name: str = 'synthetic_data'):
-    # Database connection details
-    db_url = st.secrets["DATABASE_URL"]  # Fetching from environment variables
 
-    # Create connection
-    conn = psycopg2.connect(db_url)
-    cursor = conn.cursor()
-
-    # Create table if not exists
-    create_table_query = f'''
-    CREATE TABLE IF NOT EXISTS {table_name} (
-        id SERIAL PRIMARY KEY,
-        time TIMESTAMP,
-        interval INTEGER,
-        data JSONB
-    );
-    '''
-    cursor.execute(create_table_query)
-
-    # Convert DataFrame to CSV format for bulk insertion
-    csv_data = StringIO()
-    synthetic_data_df.to_csv(csv_data, index=False, header=False)
-    csv_data.seek(0)
-
-    # Insert data into PostgreSQL
-    cursor.copy_expert(f"COPY {table_name} FROM STDIN WITH CSV", csv_data)
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-    st.success(f"Synthetic data saved to PostgreSQL table '{table_name}'")
-
-
-
-# Load metadata
-with open('metadata_dict_measurements.json', 'r') as f:
-    metadata_dict = json.load(f)
-
-# Define the mapping from user-friendly names to actual column names
-value_triple_mapping = {
-    "op-reachability": ["Min op-reachability (%)", "Max op-reachability (%)", "Avg op-reachability (%)"],
-    "in-octets": ["Min in-octets (kbit/s)", "Max in-octets (kbit/s)", "Avg in-octets (kbit/s)"],
-    "in-utilization": ["Min in-utilization (%)", "Max in-utilization (%)", "Avg in-utilization (%)"],
-    "in-errors": ["Min in-errors (%)", "Max in-errors (%)", "Avg in-errors (%)"],
-    "in-discards": ["Min in-discards (%)", "Max in-discards (%)", "Avg in-discards (%)"],
-    "out-octets": ["Min out-octets (kbit/s)", "Max out-octets (kbit/s)", "Avg out-octets (kbit/s)"],
-    "out-utilization": ["Min out-utilization (%)", "Max out-utilization (%)", "Avg out-utilization (%)"],
-    "out-errors": ["Min out-errors (%)", "Max out-errors (%)", "Avg out-errors (%)"],
-    "out-discards": ["Min out-discards (%)", "Max out-discards (%)", "Avg out-discards (%)"]
-}
-
-
-def main():
+def generate_data_app():
     st.title("Synthetic Data Generator")
 
-    # File upload
+    # Add a header image
+    st.image("logos/uni_logo.jpg", width=200)
+
+    # File upload section
+    st.subheader("Step 1: Upload Your Data")
+    st.write("Please upload a CSV file with the common format of a StableNet measurement to start the process.")
     uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
+
     if uploaded_file is not None:
         real_data_df = upload_and_process_file(uploaded_file)
         st.write("Real Data Sample:")
         st.dataframe(real_data_df)
 
+        # Step 2: Configure columns and options
+        st.subheader("Step 2: Configure Data Generation Options")
         slim_columns_only = st.checkbox(
-            "Generate data for Avg columns only (keeps timestamp and interval for later consistency)")
+            "Generate data for Avg columns only (keeps timestamp and interval for later consistency)"
+        )
 
-        deselect_all = st.checkbox("Deselect all value-triples")
-        value_triples = [] if deselect_all else st.multiselect(
+        value_triples = st.multiselect(
             "Select value-triples to include",
             list(value_triple_mapping.keys()),
             list(value_triple_mapping.keys())  # Default selected
@@ -144,14 +95,18 @@ def main():
 
         non_generation_columns = ["Time", "Interval"]
         selected_columns_for_generation, selected_columns_for_display = get_selected_columns(
-            value_triples, value_triple_mapping, slim_columns_only)
+            value_triples, value_triple_mapping, slim_columns_only
+        )
 
         real_data_df = real_data_df[selected_columns_for_display]
         metadata = SingleTableMetadata().load_from_dict(filter_metadata(metadata_dict, selected_columns_for_generation))
 
+        # Model settings
+        st.subheader("Step 3: Select Model and Training Settings")
         model_type = st.selectbox("Select model type", ["tvae", "ctgan"])
         epochs = st.number_input("Enter number of epochs", min_value=1, max_value=1000, value=300)
 
+        # Model training
         if st.button("Train Model"):
             with st.spinner('Training model...'):
                 try:
@@ -167,7 +122,9 @@ def main():
                 except Exception as e:
                     st.error(f"Error during training: {e}")
 
+        # Data generation
         if 'generator' in st.session_state:
+            st.subheader("Step 4: Generate and Download Synthetic Data")
             num_samples = len(real_data_df)
             if st.button("Generate Synthetic Data"):
                 with st.spinner('Generating synthetic data...'):
@@ -178,15 +135,15 @@ def main():
                         st.write("Synthetic Data Sample:")
                         st.dataframe(synthetic_data_with_time)
                         st.session_state['synthetic_data'] = synthetic_data_with_time
-                        generate_downloadable_csv(
-                            st.session_state['generator'].postprocess_timestamps(synthetic_data_with_time.copy()))
-                        if st.button("Save to PostgreSQL"):
-                            save_to_postgres(st.session_state['synthetic_data'])
                         st.success("Synthetic data generated successfully.")
                     except Exception as e:
                         st.error(f"Error during data generation: {e}")
 
-            if 'synthetic_data' in st.session_state and st.button("Evaluate Synthetic Data"):
+        # Save and evaluate options
+        if 'synthetic_data' in st.session_state:
+            st.subheader("Step 5: Save or Evaluate Synthetic Data")
+
+            if st.button("Evaluate Synthetic Data"):
                 with st.spinner('Evaluating synthetic data...'):
                     try:
                         generator = st.session_state['generator']
@@ -209,6 +166,26 @@ def main():
                     except Exception as e:
                         st.error(f"Error during evaluation: {e}")
 
+            if st.button("Save Synthetic Data to Database"):
+                with st.spinner('Saving synthetic data to database...'):
+                    try:
+                        generate_downloadable_csv(
+                            st.session_state['generator'].postprocess_timestamps(synthetic_data_with_time.copy())
+                        )
+                        synthetic_data = st.session_state['synthetic_data']
+                        csv_bytes = synthetic_data.to_csv(index=False).encode('utf-8')
+                        db = SessionLocal()
+                        new_file = SyntheticDataFile(
+                            filename=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
+                            content=csv_bytes
+                        )
+                        db.add(new_file)
+                        db.commit()
+                        db.refresh(new_file)
+                        st.success(f"Data saved to database with filename: {new_file.filename}")
+                    except Exception as e:
+                        st.error(f"Error saving data to database: {e}")
+
             selected_column = st.selectbox("Select a column for time series comparison",
                                            selected_columns_for_generation)
             if st.button("Plot Time Series Comparison"):
@@ -222,5 +199,62 @@ def main():
                         st.error(f"Error during time series comparison: {e}")
 
 
+def data_app():
+    st.header("Stored Synthetic Data Files")
+    st.image("logos/Infosim_logo.png", width=200)
+
+    db = SessionLocal()
+    files = db.query(SyntheticDataFile).order_by(SyntheticDataFile.created_at.desc()).all()
+
+    if files:
+        for file in files:
+            st.subheader(f"Filename: {file.filename}")
+            st.write(f"Uploaded at: {file.created_at}")
+
+            st.download_button(
+                label="Download CSV",
+                data=file.content,
+                file_name=file.filename,
+                mime='text/csv'
+            )
+    else:
+        st.info("No files found in the database.")
+
+def main():
+
+    # Create placeholders for top and bottom logos
+    top_logo = st.sidebar.empty()
+
+    # Display the top logo
+    top_logo.image("logos/Infosim_logo.png", use_column_width=True)
+
+    st.sidebar.title("Navigation")
+    app_mode = st.sidebar.selectbox("Choose the app mode", ["Generate Data", "Data"])
+
+    if app_mode == "Generate Data":
+        generate_data_app()
+    elif app_mode == "Data":
+        data_app()
+
+    # Add an empty element to force space before the bottom logo
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+    st.sidebar.write("\n")
+
+    # Display the bottom logo in a placeholder at the bottom
+    bottom_logo = st.sidebar.empty()
+    bottom_logo.image("logos/uni_logo.jpg", use_column_width=True)
+
+
 if __name__ == "__main__":
     main()
+
+
