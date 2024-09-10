@@ -132,15 +132,19 @@ def generate_data_app():
                         synthetic_data = st.session_state['generator'].generate_synthetic_data(num_samples)
                         synthetic_data_with_time = pd.concat([real_data_df[non_generation_columns], synthetic_data],
                                                              axis=1)
+
+                        # Store synthetic data in session state for later use
+                        st.session_state['synthetic_data'] = synthetic_data
+                        st.session_state['synthetic_data_with_time'] = synthetic_data_with_time
+
                         st.write("Synthetic Data Sample:")
                         st.dataframe(synthetic_data_with_time)
-                        st.session_state['synthetic_data'] = synthetic_data_with_time
                         st.success("Synthetic data generated successfully.")
                     except Exception as e:
                         st.error(f"Error during data generation: {e}")
 
         # Save and evaluate options
-        if 'synthetic_data' in st.session_state:
+        if 'synthetic_data_with_time' in st.session_state:
             st.subheader("Step 5: Save or Evaluate Synthetic Data")
 
             if st.button("Evaluate Synthetic Data"):
@@ -170,9 +174,11 @@ def generate_data_app():
                 with st.spinner('Saving synthetic data to database...'):
                     try:
                         generate_downloadable_csv(
-                            st.session_state['generator'].postprocess_timestamps(synthetic_data_with_time.copy())
+                            st.session_state['generator'].postprocess_timestamps(
+                                st.session_state['synthetic_data_with_time'].copy()
+                            )
                         )
-                        synthetic_data = st.session_state['synthetic_data']
+                        synthetic_data = st.session_state['synthetic_data_with_time']
                         csv_bytes = synthetic_data.to_csv(index=False).encode('utf-8')
                         db = SessionLocal()
                         new_file = SyntheticDataFile(
