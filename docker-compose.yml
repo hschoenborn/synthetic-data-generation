@@ -12,6 +12,7 @@ services:
       - db
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/synthetic_data_db
+    command: streamlit run streamlit_measurements.py --logger.level=debug
 
   db:
     image: postgres:14

@@ -1,6 +1,12 @@
 {
     "METADATA_SPEC_VERSION": "SINGLE_TABLE_V1",
+    "sequence_key": "Measurement ID",
+    "sequence_index": "Time",
     "columns": {
+        "Measurement ID": {
+            "sdtype": "id",
+            "regex_format": "[0-9]{6}"
+        },
         "Time": {
             "sdtype": "datetime",
             "datetime_format": "%Y-%m-%d %H:%M:%S"
