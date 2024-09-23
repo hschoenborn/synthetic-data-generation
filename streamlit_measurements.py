@@ -66,15 +66,28 @@ def upload_and_process_file(uploaded_file, column='Time'):
 
     return preprocess_timestamps(real_data_df, column=column)
 
+def generate_download_button_from_db(file_id):
+    db = SessionLocal()
+    file_record = db.query(SyntheticDataFile).filter(SyntheticDataFile.id == file_id).first()
 
-def generate_downloadable_csv(dataframe):
-    csv = dataframe.to_csv(index=False).encode('utf-8')
-    return st.download_button(
-        label="Download Synthetic Data as CSV",
-        data=csv,
-        file_name='synthetic_data.csv',
-        mime='text/csv'
-    )
+    if file_record:
+        return st.download_button(
+            label="Download Synthetic Data as CSV",
+            data=file_record.content,
+            file_name=file_record.filename,
+            mime='text/csv'
+        )
+    else:
+        st.error("File not found in the database.")
+
+# def generate_downloadable_csv(dataframe):
+#     csv = dataframe.to_csv(index=False).encode('utf-8')
+#     return st.download_button(
+#         label="Download Synthetic Data as CSV",
+#         data=csv,
+#         file_name=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
+#         mime='text/csv'
+#     )
 
 
 def generate_data_app():
@@ -176,15 +189,15 @@ def generate_data_app():
             if st.button("Save Synthetic Data to Database without ID column"):
                 with st.spinner('Saving synthetic data to database...'):
                     try:
-                        generate_downloadable_csv(
-                            st.session_state['generator'].postprocess_timestamps(
-                                st.session_state['synthetic_data_with_time'].copy()
-                            )
-                        )
-                        synthetic_data = st.session_state['synthetic_data_with_time']
-                        synthetic_data = synthetic_data.drop(columns=['Measurement ID'], axis=1)  #TODO: verify
-                        csv_bytes = synthetic_data.to_csv(index=False).encode('utf-8')
+                        # Drop 'Measurement ID' column
+                        synthetic_data = st.session_state['synthetic_data_with_time'].copy().drop(columns=['Measurement ID'], axis=1)
+                        # Postprocess the timestamps back to unix format
+                        processed_data = st.session_state['generator'].postprocess_timestamps(synthetic_data)
+
+                        # Initialize the database session to save CSV
                         db = SessionLocal()
+                        csv_bytes = processed_data.to_csv(index=False).encode('utf-8')
+
                         new_file = SyntheticDataFile(
                             filename=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
                             content=csv_bytes
@@ -192,7 +205,12 @@ def generate_data_app():
                         db.add(new_file)
                         db.commit()
                         db.refresh(new_file)
+
                         st.success(f"Data saved to database with filename: {new_file.filename}")
+
+                        # Generate download button from the database
+                        generate_download_button_from_db(new_file.id)
+
                     except Exception as e:
                         st.error(f"Error saving data to database: {e}")
 
