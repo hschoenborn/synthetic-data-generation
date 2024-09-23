@@ -57,7 +57,7 @@ def get_selected_columns(value_triples, mapping, slim_columns_only):
 def upload_and_process_id_file(uploaded_file, column='Time', id_length=6):
     # Load data from the Stablenet measurement ID file
     try:
-        real_data_df = pd.read_csv(uploaded_file, delimiter=';')
+        real_data_df = pd.read_csv(uploaded_file, sep='[;,]', engine='python')
     except pd.errors.EmptyDataError:
         st.error("The uploaded file is empty or does not contain valid data.")
         return None
