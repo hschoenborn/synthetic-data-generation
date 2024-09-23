@@ -1,6 +1,7 @@
 # Standard library imports
 from datetime import datetime
 import json
+import re
 
 # Third-party library imports
 import pandas as pd
@@ -56,14 +57,44 @@ def get_selected_columns(value_triples, mapping, slim_columns_only):
     return selected_columns_for_generation  #, selected_columns_for_display
 
 
-def upload_and_process_file(uploaded_file, column='Time'):
-    real_data_df = pd.read_csv(uploaded_file, delimiter=';')
-    st.info("You must provide the Measurement ID (sequence) of your dataset", icon='⚠️')
-    measurement_id = st.text_input("Measurement ID:")
+def upload_and_process_id_file(uploaded_file, column='Time', id_length=6):
+    # Load data from the Stablenet measurement ID file
+    try:
+        real_data_df = pd.read_csv(uploaded_file, delimiter=';')
+    except pd.errors.EmptyDataError:
+        st.error("The uploaded file is empty or does not contain valid data.")
+        return None
+    except Exception as e:
+        st.error(f"An error occurred while reading the file: {e}")
+        return None
+
+    # Read ID from the file name
+    file_name = uploaded_file.name
+    pattern = rf'\d{{{id_length}}}'
+    match = re.search(pattern, file_name)
+
+    if match:
+        measurement_id = match.group(0)
+    else:
+        # Input ID manually
+        st.info("You must provide the 6-digit Measurement ID (sequence) of your dataset:", icon='⚠️')
+        measurement_id_input = st.text_input("Measurement ID:")
+
+        # Check if input is valid
+        if measurement_id_input and measurement_id_input.isdigit() and len(measurement_id_input) == id_length:
+            measurement_id = measurement_id_input  # Convert valid input to an integer
+        else:
+            st.error("Invalid input. Please enter a valid 6-digit integer Measurement ID.")
+            return None  # Do not proceed further if input is invalid
+
+    # Add the Measurement ID column
     real_data_df['Measurement ID'] = measurement_id
+
+    # Reorder the columns with the ID first
     columns = ['Measurement ID'] + [col for col in real_data_df if col != 'Measurement ID']
     real_data_df = real_data_df[columns]
 
+    # Process the timestamp column to a datetime format
     return preprocess_timestamps(real_data_df, column=column)
 
 def generate_download_button_from_db(file_id):
@@ -102,7 +133,7 @@ def generate_data_app():
     uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
 
     if uploaded_file is not None:
-        real_data_df = upload_and_process_file(uploaded_file)
+        real_data_df = upload_and_process_id_file(uploaded_file)
         st.write("Real Data Sample:")
         st.dataframe(real_data_df)
 
