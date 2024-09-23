@@ -44,17 +44,14 @@ def filter_metadata(metadata_dict, selected_columns):
 
 def get_selected_columns(value_triples, mapping, slim_columns_only):
     selected_columns_for_generation = ["Measurement ID", "Time", "Interval"]
-    # selected_columns_for_display = ["Time", "Interval"]
 
     for triple in value_triples:
         if slim_columns_only:
             selected_columns_for_generation.append(mapping[triple][2])
-            # selected_columns_for_display.append(mapping[triple][2])
         else:
             selected_columns_for_generation.extend(mapping[triple])
-            # selected_columns_for_display.extend(mapping[triple])
 
-    return selected_columns_for_generation  #, selected_columns_for_display
+    return selected_columns_for_generation
 
 
 def upload_and_process_id_file(uploaded_file, column='Time', id_length=6):
@@ -82,7 +79,7 @@ def upload_and_process_id_file(uploaded_file, column='Time', id_length=6):
 
         # Check if input is valid
         if measurement_id_input and measurement_id_input.isdigit() and len(measurement_id_input) == id_length:
-            measurement_id = measurement_id_input  # Convert valid input to an integer
+            measurement_id = measurement_id_input
         else:
             st.error("Invalid input. Please enter a valid 6-digit integer Measurement ID.")
             return None  # Do not proceed further if input is invalid
@@ -149,18 +146,13 @@ def generate_data_app():
             list(value_triple_mapping.keys())  # Default selected
         )
 
-        # non_generation_columns = ["Time", "Interval"]
         selected_columns_for_generation = get_selected_columns(
             value_triples, value_triple_mapping, slim_columns_only
         )
 
-        # selected_columns_for_generation, selected_columns_for_display = get_selected_columns(
-        #     value_triples, value_triple_mapping, slim_columns_only
-        # )
-        #
         # # TODO: drop measurement id column in time-series comparisons
-        #
-        real_data_df = real_data_df[selected_columns_for_generation]  # selected_columns_for_display
+
+        real_data_df = real_data_df[selected_columns_for_generation]
         metadata = SingleTableMetadata().load_from_dict(filter_metadata(metadata_dict, selected_columns_for_generation))
 
         # Model settings
@@ -201,7 +193,6 @@ def generate_data_app():
                             synthetic_data = st.session_state['generator'].generate_synthetic_data_par(num_sequences)
 
                         synthetic_data_with_time = synthetic_data
-                        # pd.concat([real_data_df[non_generation_columns], synthetic_data], axis=1)
 
                         # Store synthetic data in session state for later use
                         st.session_state['synthetic_data'] = synthetic_data
