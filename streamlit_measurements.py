@@ -1,6 +1,7 @@
 # Standard library imports
 from datetime import datetime
 import json
+import re
 
 # Third-party library imports
 import pandas as pd
@@ -43,38 +44,78 @@ def filter_metadata(metadata_dict, selected_columns):
 
 def get_selected_columns(value_triples, mapping, slim_columns_only):
     selected_columns_for_generation = ["Measurement ID", "Time", "Interval"]
-    # selected_columns_for_display = ["Time", "Interval"]
 
     for triple in value_triples:
         if slim_columns_only:
             selected_columns_for_generation.append(mapping[triple][2])
-            # selected_columns_for_display.append(mapping[triple][2])
         else:
             selected_columns_for_generation.extend(mapping[triple])
-            # selected_columns_for_display.extend(mapping[triple])
 
-    return selected_columns_for_generation  #, selected_columns_for_display
+    return selected_columns_for_generation
 
 
-def upload_and_process_file(uploaded_file, column='Time'):
-    real_data_df = pd.read_csv(uploaded_file, delimiter=';')
-    st.info("You must provide the Measurement ID (sequence) of your dataset", icon='⚠️')
-    measurement_id = st.text_input("Measurement ID:")
+def upload_and_process_id_file(uploaded_file, column='Time', id_length=6):
+    # Load data from the Stablenet measurement ID file
+    try:
+        real_data_df = pd.read_csv(uploaded_file, sep='[;,]', engine='python')
+    except pd.errors.EmptyDataError:
+        st.error("The uploaded file is empty or does not contain valid data.")
+        return None
+    except Exception as e:
+        st.error(f"An error occurred while reading the file: {e}")
+        return None
+
+    # Read ID from the file name
+    file_name = uploaded_file.name
+    pattern = rf'\d{{{id_length}}}'
+    match = re.search(pattern, file_name)
+
+    if match:
+        measurement_id = match.group(0)
+    else:
+        # Input ID manually
+        st.info("You must provide the 6-digit Measurement ID (sequence) of your dataset:", icon='⚠️')
+        measurement_id_input = st.text_input("Measurement ID:")
+
+        # Check if input is valid
+        if measurement_id_input and measurement_id_input.isdigit() and len(measurement_id_input) == id_length:
+            measurement_id = measurement_id_input
+        else:
+            st.error("Invalid input. Please enter a valid 6-digit integer Measurement ID.")
+            return None  # Do not proceed further if input is invalid
+
+    # Add the Measurement ID column
     real_data_df['Measurement ID'] = measurement_id
+
+    # Reorder the columns with the ID first
     columns = ['Measurement ID'] + [col for col in real_data_df if col != 'Measurement ID']
     real_data_df = real_data_df[columns]
 
+    # Process the timestamp column to a datetime format
     return preprocess_timestamps(real_data_df, column=column)
 
+def generate_download_button_from_db(file_id):
+    db = SessionLocal()
+    file_record = db.query(SyntheticDataFile).filter(SyntheticDataFile.id == file_id).first()
 
-def generate_downloadable_csv(dataframe):
-    csv = dataframe.to_csv(index=False).encode('utf-8')
-    return st.download_button(
-        label="Download Synthetic Data as CSV",
-        data=csv,
-        file_name='synthetic_data.csv',
-        mime='text/csv'
-    )
+    if file_record:
+        return st.download_button(
+            label="Download Synthetic Data as CSV",
+            data=file_record.content,
+            file_name=file_record.filename,
+            mime='text/csv'
+        )
+    else:
+        st.error("File not found in the database.")
+
+# def generate_downloadable_csv(dataframe):
+#     csv = dataframe.to_csv(index=False).encode('utf-8')
+#     return st.download_button(
+#         label="Download Synthetic Data as CSV",
+#         data=csv,
+#         file_name=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
+#         mime='text/csv'
+#     )
 
 
 def generate_data_app():
@@ -89,7 +130,7 @@ def generate_data_app():
     uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
 
     if uploaded_file is not None:
-        real_data_df = upload_and_process_file(uploaded_file)
+        real_data_df = upload_and_process_id_file(uploaded_file)
         st.write("Real Data Sample:")
         st.dataframe(real_data_df)
 
@@ -105,18 +146,13 @@ def generate_data_app():
             list(value_triple_mapping.keys())  # Default selected
         )
 
-        # non_generation_columns = ["Time", "Interval"]
         selected_columns_for_generation = get_selected_columns(
             value_triples, value_triple_mapping, slim_columns_only
         )
 
-        # selected_columns_for_generation, selected_columns_for_display = get_selected_columns(
-        #     value_triples, value_triple_mapping, slim_columns_only
-        # )
-        #
         # # TODO: drop measurement id column in time-series comparisons
-        #
-        real_data_df = real_data_df[selected_columns_for_generation]  # selected_columns_for_display
+
+        real_data_df = real_data_df[selected_columns_for_generation]
         metadata = SingleTableMetadata().load_from_dict(filter_metadata(metadata_dict, selected_columns_for_generation))
 
         # Model settings
@@ -157,7 +193,6 @@ def generate_data_app():
                             synthetic_data = st.session_state['generator'].generate_synthetic_data_par(num_sequences)
 
                         synthetic_data_with_time = synthetic_data
-                        # pd.concat([real_data_df[non_generation_columns], synthetic_data], axis=1)
 
                         # Store synthetic data in session state for later use
                         st.session_state['synthetic_data'] = synthetic_data
@@ -176,15 +211,15 @@ def generate_data_app():
             if st.button("Save Synthetic Data to Database without ID column"):
                 with st.spinner('Saving synthetic data to database...'):
                     try:
-                        generate_downloadable_csv(
-                            st.session_state['generator'].postprocess_timestamps(
-                                st.session_state['synthetic_data_with_time'].copy()
-                            )
-                        )
-                        synthetic_data = st.session_state['synthetic_data_with_time']
-                        synthetic_data = synthetic_data.drop(columns=['Measurement ID'], axis=1)  #TODO: verify
-                        csv_bytes = synthetic_data.to_csv(index=False).encode('utf-8')
+                        # Drop 'Measurement ID' column
+                        synthetic_data = st.session_state['synthetic_data_with_time'].copy().drop(columns=['Measurement ID'], axis=1)
+                        # Postprocess the timestamps back to unix format
+                        processed_data = st.session_state['generator'].postprocess_timestamps(synthetic_data)
+
+                        # Initialize the database session to save CSV
                         db = SessionLocal()
+                        csv_bytes = processed_data.to_csv(index=False).encode('utf-8')
+
                         new_file = SyntheticDataFile(
                             filename=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
                             content=csv_bytes
@@ -192,7 +227,12 @@ def generate_data_app():
                         db.add(new_file)
                         db.commit()
                         db.refresh(new_file)
+
                         st.success(f"Data saved to database with filename: {new_file.filename}")
+
+                        # Generate download button from the database
+                        generate_download_button_from_db(new_file.id)
+
                     except Exception as e:
                         st.error(f"Error saving data to database: {e}")
 
