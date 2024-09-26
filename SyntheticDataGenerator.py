@@ -22,6 +22,7 @@ class SyntheticDataGenerator:
         Initialize the Synthetic Data Generator with model configuration and metadata.
         """
         self.metadata = self.create_metadata(metadata_dict, selected_columns)
+        self.selected_columns = selected_columns
         self.model_type = model_type
         self.epochs = epochs
         self.batch_size = batch_size
@@ -89,6 +90,29 @@ class SyntheticDataGenerator:
                 epochs=self.epochs,
                 cuda=self.cuda,
             )
+            all_constraints = list()
+            for col in self.selected_columns:
+                if col not in ["Time", "Measurement ID"]:
+                    if "octet" in col:
+                        constraint = {
+                            'constraint_class': 'ScalarRange',
+                            'constraint_parameters': {
+                                'column_name': col,
+                                'low_value': 0,
+                                'high_value': 100,
+                                'strict_boundaries': False
+                            }
+                        }
+                    else:
+                        constraint = {
+                            'constraint_class': 'Positive',
+                            'constraint_parameters': {
+                                'column_name': col,
+                                'strict_boundaries': False
+                            }
+                        }
+                    all_constraints.append(constraint)
+            self.model.add_constraints(constraints=all_constraints)
         else:
             raise ValueError("Unsupported model type")
 
@@ -131,7 +155,8 @@ class SyntheticDataGenerator:
         """
         if self.model is None:
             raise ValueError("Model is not trained or loaded.")
-        synthetic_data = self.model.sample(num_samples)
+        synthetic_data: pd.DataFrame = self.model.sample(num_samples)
+        synthetic_data.sort_values(by="Time", inplace=True)
         return synthetic_data
 
     def generate_synthetic_data_par(self, num_sequences: int) -> pd.DataFrame:
