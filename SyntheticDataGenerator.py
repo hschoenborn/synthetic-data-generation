@@ -155,7 +155,8 @@ class SyntheticDataGenerator:
         """
         if self.model is None:
             raise ValueError("Model is not trained or loaded.")
-        synthetic_data = self.model.sample(num_samples)
+        synthetic_data: pd.DataFrame = self.model.sample(num_samples)
+        synthetic_data.sort_values(by="Time", inplace=True)
         return synthetic_data
 
     def generate_synthetic_data_par(self, num_sequences: int) -> pd.DataFrame:
