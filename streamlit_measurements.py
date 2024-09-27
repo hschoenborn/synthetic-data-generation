@@ -136,6 +136,7 @@ def generate_data_app():
 
         # Step 2: Configure columns and options
         st.subheader("Step 2: Configure Data Generation Options")
+
         slim_columns_only = st.checkbox(
             "Generate data for Avg columns only (keeps timestamp and interval for later consistency)"
         )
@@ -197,15 +198,15 @@ def generate_data_app():
                         # Store synthetic data in session state for later use
                         st.session_state['synthetic_data'] = synthetic_data
                         st.session_state['synthetic_data_with_time'] = synthetic_data_with_time
-
-                        st.write("Synthetic Data Sample:")
-                        st.dataframe(synthetic_data_with_time)
                         st.success("Synthetic data generated successfully.")
                     except Exception as e:
                         st.error(f"Error during data generation: {e}")
 
         # Save and evaluate options
         if 'synthetic_data_with_time' in st.session_state:
+            st.write("Synthetic Data Sample:")
+            st.dataframe(st.session_state['synthetic_data_with_time'])
+
             st.subheader("Step 5: Save or Evaluate Synthetic Data")
 
             if st.button("Save Synthetic Data to Database without ID column"):
