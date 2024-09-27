@@ -65,6 +65,7 @@ class SyntheticDataGenerator:
     def initialize_model(self):
         """
         Initialize the selected model (TVAE or CTGAN) based on the configuration.
+        Add value constraints to ensure proper data generation.
         """
         if self.model_type == "tvae":
             self.model = TVAESynthesizer(
@@ -90,31 +91,32 @@ class SyntheticDataGenerator:
                 epochs=self.epochs,
                 cuda=self.cuda,
             )
-            all_constraints = list()
-            for col in self.selected_columns:
-                if col not in ["Time", "Measurement ID"]:
-                    if "octet" in col:
-                        constraint = {
-                            'constraint_class': 'ScalarRange',
-                            'constraint_parameters': {
-                                'column_name': col,
-                                'low_value': 0,
-                                'high_value': 100,
-                                'strict_boundaries': False
-                            }
-                        }
-                    else:
-                        constraint = {
-                            'constraint_class': 'Positive',
-                            'constraint_parameters': {
-                                'column_name': col,
-                                'strict_boundaries': False
-                            }
-                        }
-                    all_constraints.append(constraint)
-            self.model.add_constraints(constraints=all_constraints)
         else:
             raise ValueError("Unsupported model type")
+
+        all_constraints = list()
+        for col in self.selected_columns:
+            if col not in ["Time", "Measurement ID"]:
+                if "octet" in col:
+                    constraint = {
+                        'constraint_class': 'ScalarRange',
+                        'constraint_parameters': {
+                            'column_name': col,
+                            'low_value': 0,
+                            'high_value': 100,
+                            'strict_boundaries': False
+                        }
+                    }
+                else:
+                    constraint = {
+                        'constraint_class': 'Positive',
+                        'constraint_parameters': {
+                            'column_name': col,
+                            'strict_boundaries': False
+                        }
+                    }
+                all_constraints.append(constraint)
+        self.model.add_constraints(constraints=all_constraints)
 
     def train_model(self, real_data_df: pd.DataFrame):
         """
