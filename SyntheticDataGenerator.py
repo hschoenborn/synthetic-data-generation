@@ -234,7 +234,7 @@ class SyntheticDataGenerator:
         )
         return quality_report
 
-    def evaluate_umap(real_data: pd.DataFrame, synthetic_data: pd.DataFrame):
+    def evaluate_umap(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame):
         """
         Evaluates and visualizes the similarity between real and synthetic datasets using UMAP.
         """
