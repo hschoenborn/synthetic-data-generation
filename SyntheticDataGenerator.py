@@ -13,6 +13,7 @@ from sdv.evaluation.single_table import run_diagnostic, evaluate_quality
 from sdv.metadata import SingleTableMetadata
 from sdv.single_table import TVAESynthesizer, CTGANSynthesizer
 from sdv.sequential import PARSynthesizer
+import umap
 
 class SyntheticDataGenerator:
     def __init__(self, metadata_dict: dict, model_type: str, epochs: int = 300, batch_size: int = 16, cuda: bool = True,
@@ -233,6 +234,63 @@ class SyntheticDataGenerator:
         )
         return quality_report
 
+    def evaluate_umap(real_data: pd.DataFrame, synthetic_data: pd.DataFrame):
+        """
+        Evaluates and visualizes the similarity between real and synthetic datasets using UMAP.
+        """
+        # Create copies of the datasets to avoid modifying the originals
+        real_data_copy = real_data.copy()
+        synthetic_data_copy = synthetic_data.copy()
+        
+        # Filter numeric columns only in both datasets
+        real_data_numeric = real_data_copy.select_dtypes(include='number')
+        synthetic_data_numeric = synthetic_data_copy.select_dtypes(include='number')
+        
+        # Drop columns in real data that do not exist in the synthetic data
+        real_data_aligned = real_data_numeric[real_data_numeric.columns.intersection(synthetic_data_numeric.columns)]
+        
+        # Align columns of the synthetic dataset to match the filtered real dataset
+        synthetic_data_aligned = synthetic_data_numeric.reindex(columns=real_data_aligned.columns, fill_value=0)
+        
+        # Print debug information about column alignment
+        # print("Real Data Aligned Columns:\n", real_data_aligned.columns)
+        # print("Synthetic Data Aligned Columns:\n", synthetic_data_aligned.columns)
+        
+        # Check for NaN values in the aligned datasets
+        if real_data_aligned.isnull().values.any() or synthetic_data_aligned.isnull().values.any():
+            # print("NaN values found in the datasets. Filling NaNs with zeros.")
+            
+            # Fill NaN values with zero
+            real_data_aligned = real_data_aligned.fillna(0)
+            synthetic_data_aligned = synthetic_data_aligned.fillna(0)
+    
+        # Check if the columns now match after alignment
+        if not real_data_aligned.columns.equals(synthetic_data_aligned.columns):
+            raise ValueError("The real and synthetic datasets do not have matching numeric columns even after alignment.")
+        
+        # Concatenate both datasets and add labels to identify them
+        combined_data = pd.concat([real_data_aligned, synthetic_data_aligned], axis=0)
+        labels = ['Real'] * len(real_data_aligned) + ['Synthetic'] * len(synthetic_data_aligned)
+        
+        # Apply UMAP to reduce the dimensionality of the combined data
+        umap_reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, random_state=42)
+        umap_embedding = umap_reducer.fit_transform(combined_data)
+        
+        # Create a scatter plot
+        plt.figure(figsize=(10, 7))
+        plt.scatter(umap_embedding[:len(real_data_aligned), 0], umap_embedding[:len(real_data_aligned), 1], 
+                    c='blue', label='Real', alpha=0.5)
+        plt.scatter(umap_embedding[len(real_data_aligned):, 0], umap_embedding[len(real_data_aligned):, 1], 
+                    c='red', label='Synthetic', alpha=0.5)
+        
+        # Add labels and legend
+        plt.title('UMAP Visualization of Real vs. Synthetic Data')
+        plt.xlabel('UMAP Dimension 1')
+        plt.ylabel('UMAP Dimension 2')
+        plt.legend()
+        plt.show()
+
+    
     def plot_column_distributions(self, real_data_df: pd.DataFrame, synthetic_data: pd.DataFrame):
         """
         Evaluate the column distributions of the generated synthetic data in comparison to the real data.
