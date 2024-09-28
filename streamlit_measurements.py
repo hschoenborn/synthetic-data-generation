@@ -264,7 +264,7 @@ def generate_data_app():
                 with st.spinner("Plotting..."):
                     try:
                         generator = st.session_state['generator']
-                        fig = generator.plot_column_distributions(real_data_df, st.session_state['synthetic_data'])
+                        fig = generator.evaluate_umap(real_data_df, st.session_state['synthetic_data'])
                         st.set_option('deprecation.showPyplotGlobalUse', False)
                         st.pyplot(fig)
                     except Exception as e:
