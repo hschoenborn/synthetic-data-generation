@@ -291,18 +291,19 @@ class SyntheticDataGenerator:
         plt.show()
 
     
-    def plot_column_distributions(self, real_data_df: pd.DataFrame, synthetic_data: pd.DataFrame):
+    def plot_column_distributions(self, real_data_df: pd.DataFrame, synthetic_data: pd.DataFrame,
+                                  selected_columns: list) -> None:
         """
         Evaluate the column distributions of the generated synthetic data in comparison to the real data.
         """
         # Define the number of columns in the DataFrames
-        num_columns = len(real_data_df.columns)
+        num_columns = len(selected_columns)
 
         # Create subplots: num_columns rows and 2 columns
         fig, axes = plt.subplots(nrows=num_columns, ncols=2, figsize=(12, 3 * num_columns), constrained_layout=True)
 
         # Iterate through columns and plot
-        for i, column in enumerate(real_data_df.columns):
+        for i, column in enumerate(selected_columns):
             # Plot real data distribution
             sns.histplot(real_data_df[column], ax=axes[i, 0], kde=True, bins=30)
             axes[i, 0].set_title(f'Real Data: {column}')
