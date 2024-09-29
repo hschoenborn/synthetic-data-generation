@@ -260,7 +260,7 @@ def generate_data_app():
                     except Exception as e:
                         st.error(f"Error during evaluation: {e}")
 
-            if st.button("Start UMAP evaluation"):
+            if st.button("Plot UMAP evaluation"):
                 with st.spinner("Plotting..."):
                     try:
                         generator = st.session_state['generator']
@@ -269,19 +269,24 @@ def generate_data_app():
                         st.pyplot(fig)
                     except Exception as e:
                         st.error(f"Error during UMAP evaluation: {e}")
-            
+
+            # Plotting column comparisons: remove 'Measurement ID' from selected columns
+            time_series_cols = selected_columns_for_generation.copy()
+            time_series_cols.remove("Measurement ID")
+            selected_column = st.selectbox("Select a column for time series comparison",
+                                           time_series_cols)
+
             if st.button("Plot Distributions of Real vs. Synthetic Data"):
                 with st.spinner("Plotting..."):
                     try:
                         generator = st.session_state['generator']
-                        fig = generator.plot_column_distributions(real_data_df, st.session_state['synthetic_data'])
+                        fig = generator.plot_column_distributions(real_data_df, st.session_state['synthetic_data'],
+                                                                  time_series_cols)
                         st.set_option('deprecation.showPyplotGlobalUse', False)
                         st.pyplot(fig)
                     except Exception as e:
                         st.error(f"Error during time series comparison: {e}")
 
-            selected_column = st.selectbox("Select a column for time series comparison",
-                                           selected_columns_for_generation)
             if st.button("Plot Time Series Comparison"):
                 with st.spinner("Plotting time series comparison..."):
                     try:
