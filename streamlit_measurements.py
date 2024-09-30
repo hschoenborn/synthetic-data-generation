@@ -321,11 +321,11 @@ def main():
     top_logo.image("logos/Infosim_logo.png", use_column_width=True)
 
     st.sidebar.title("Navigation")
-    app_mode = st.sidebar.selectbox("Choose the app mode", ["Generate Data", "Data"])
+    app_mode = st.sidebar.selectbox("Choose the app mode", ["Generate Data", "Database"])
 
     if app_mode == "Generate Data":
         generate_data_app()
-    elif app_mode == "Data":
+    elif app_mode == "Database":
         data_app()
 
     # Add an empty element to force space before the bottom logo
