@@ -280,6 +280,7 @@ def generate_data_app():
             st.write("")
             selected_column = st.selectbox("Time series comparison - select column:",
                                            time_series_cols)
+
             if st.button("Plot Time Series Comparison"):
                 with st.spinner("Plotting time series comparison..."):
                     try:
