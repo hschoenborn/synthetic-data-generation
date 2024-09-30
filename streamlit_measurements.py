@@ -171,26 +171,26 @@ def generate_data_app():
 
         # Data generation
         if 'generator' in st.session_state:
-            st.subheader("Step 4: Generate and Download Synthetic Data")
+            st.subheader("Step 4: Generate Synthetic Data")
 
-            if st.button("Generate Synthetic Data"):
-                with st.spinner('Generating synthetic data...'):
-                    try:
-                        if model_type != "par":
-                            num_samples = len(real_data_df)
-                            synthetic_data = st.session_state['generator'].generate_synthetic_data_simple(num_samples)
-                        else:
-                            num_sequences = int(real_data_df['Measurement ID'].nunique())  # 1 sequence per ID
-                            synthetic_data = st.session_state['generator'].generate_synthetic_data_par(num_sequences)
+            # if st.button("Generate Synthetic Data"):
+            with st.spinner('Generating synthetic data...'):
+                try:
+                    if model_type != "par":
+                        num_samples = len(real_data_df)
+                        synthetic_data = st.session_state['generator'].generate_synthetic_data_simple(num_samples)
+                    else:
+                        num_sequences = int(real_data_df['Measurement ID'].nunique())  # 1 sequence per ID
+                        synthetic_data = st.session_state['generator'].generate_synthetic_data_par(num_sequences)
 
-                        synthetic_data_with_time = synthetic_data
+                    synthetic_data_with_time = synthetic_data
 
-                        # Store synthetic data in session state for later use
-                        st.session_state['synthetic_data'] = synthetic_data
-                        st.session_state['synthetic_data_with_time'] = synthetic_data_with_time
-                        st.success("Synthetic data generated successfully.")
-                    except Exception as e:
-                        st.error(f"Error during data generation: {e}")
+                    # Store synthetic data in session state for later use
+                    st.session_state['synthetic_data'] = synthetic_data
+                    st.session_state['synthetic_data_with_time'] = synthetic_data_with_time
+                    st.success("Synthetic data generated successfully.")
+                except Exception as e:
+                    st.error(f"Error during data generation: {e}")
 
         # Save and evaluate options
         if 'synthetic_data_with_time' in st.session_state:
@@ -321,11 +321,11 @@ def main():
     top_logo.image("logos/Infosim_logo.png", use_column_width=True)
 
     st.sidebar.title("Navigation")
-    app_mode = st.sidebar.selectbox("Choose the app mode", ["Generate Data", "Data"])
+    app_mode = st.sidebar.selectbox("Choose the app mode", ["Generate Data", "Database"])
 
     if app_mode == "Generate Data":
         generate_data_app()
-    elif app_mode == "Data":
+    elif app_mode == "Database":
         data_app()
 
     # Add an empty element to force space before the bottom logo
