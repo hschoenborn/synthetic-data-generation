@@ -290,49 +290,36 @@ class SyntheticDataGenerator:
         plt.legend()
         plt.show()
 
-    
-    def plot_column_distributions(self, real_data_df: pd.DataFrame, synthetic_data: pd.DataFrame,
-                                  selected_columns: list) -> None:
+    def plot_column_distribution(self, real_data_df: pd.DataFrame, synthetic_data_df: pd.DataFrame, column: str) -> None:
         """
-        Evaluate the column distributions of the generated synthetic data in comparison to the real data.
+        Plot a distribution comparison between real and synthetic data for a selected column.
         """
-        # Define the number of columns in the DataFrames
-        num_columns = len(selected_columns)
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 4), constrained_layout=True)
 
-        # Create subplots: num_columns rows and 2 columns
-        fig, axes = plt.subplots(nrows=num_columns, ncols=2, figsize=(12, 3 * num_columns), constrained_layout=True)
+        sns.histplot(real_data_df[column], ax=axes[0], kde=True, bins=30)
+        axes[0].set_title(f'Real Data: {column}')
 
-        # Iterate through columns and plot
-        for i, column in enumerate(selected_columns):
-            # Plot real data distribution
-            sns.histplot(real_data_df[column], ax=axes[i, 0], kde=True, bins=30)
-            axes[i, 0].set_title(f'Real Data: {column}')
+        sns.histplot(synthetic_data_df[column], ax=axes[1], kde=True, bins=30)
+        axes[1].set_title(f'Synthetic Data: {column}')
 
-            # Plot synthetic data distribution
-            sns.histplot(synthetic_data[column], ax=axes[i, 1], kde=True, bins=30)
-            axes[i, 1].set_title(f'Synthetic Data: {column}')
+        x_min = min(real_data_df[column].min(), synthetic_data_df[column].min())
+        x_max = max(real_data_df[column].max(), synthetic_data_df[column].max())
+        y_min = 0
+        y_max = max(axes[0].get_ylim()[1], axes[1].get_ylim()[1])
 
-            # Set the same x and y limits and ticks for both plots
-            x_min = min(real_data_df[column].min(), synthetic_data[column].min())
-            x_max = max(real_data_df[column].max(), synthetic_data[column].max())
-            y_min = 0
-            y_max = max(axes[i, 0].get_ylim()[1], axes[i, 1].get_ylim()[1])
+        axes[0].set_xlim(x_min, x_max)
+        axes[1].set_xlim(x_min, x_max)
+        axes[0].set_ylim(y_min, y_max)
+        axes[1].set_ylim(y_min, y_max)
 
-            axes[i, 0].set_xlim(x_min, x_max)
-            axes[i, 1].set_xlim(x_min, x_max)
-            axes[i, 0].set_ylim(y_min, y_max)
-            axes[i, 1].set_ylim(y_min, y_max)
+        x_ticks = sorted(set(axes[0].get_xticks()).union(set(axes[1].get_xticks())))
+        y_ticks = sorted(set(axes[0].get_yticks()).union(set(axes[1].get_yticks())))
 
-            # Set the same x and y ticks
-            x_ticks = sorted(set(axes[i, 0].get_xticks()).union(set(axes[i, 1].get_xticks())))
-            y_ticks = sorted(set(axes[i, 0].get_yticks()).union(set(axes[i, 1].get_yticks())))
+        axes[0].set_xticks(x_ticks)
+        axes[1].set_xticks(x_ticks)
+        axes[0].set_yticks(y_ticks)
+        axes[1].set_yticks(y_ticks)
 
-            axes[i, 0].set_xticks(x_ticks)
-            axes[i, 1].set_xticks(x_ticks)
-            axes[i, 0].set_yticks(y_ticks)
-            axes[i, 1].set_yticks(y_ticks)
-
-        # Show the plot
         plt.show()
 
     def plot_time_series_comparison(self, real_data_df: pd.DataFrame, synthetic_data_df: pd.DataFrame,

@@ -248,7 +248,7 @@ def generate_data_app():
                             st.write(details_df)
                             fig = report.get_visualization(property_name)
                             st.plotly_chart(fig)
-                        st.success("Evaluation completed successfully.")
+                        st.success("Inbuilt SDV-Evaluation completed successfully.")
                     except Exception as e:
                         st.error(f"Error during evaluation: {e}")
 
@@ -266,28 +266,30 @@ def generate_data_app():
             time_series_cols = selected_columns_for_generation.copy()
             time_series_cols.remove("Measurement ID")
 
-            if st.button("Plot Distributions of Real vs. Synthetic Data"):
-                with st.spinner("Plotting..."):
-                    try:
-                        generator = st.session_state['generator']
-                        fig = generator.plot_column_distributions(real_data_df, st.session_state['synthetic_data'],
-                                                                  time_series_cols)
-                        st.set_option('deprecation.showPyplotGlobalUse', False)
-                        st.pyplot(fig)
-                    except Exception as e:
-                        st.error(f"Error during time series comparison: {e}")
-
             st.write("")
-            selected_column = st.selectbox("Time series comparison - select column:",
+            selected_column = st.selectbox("Time series data comparison - select column:",
                                            time_series_cols)
-
-            if st.button("Plot Time Series Comparison"):
+            if st.button("Plot Datapoints"):
                 with st.spinner("Plotting time series comparison..."):
                     try:
                         generator = st.session_state['generator']
                         fig = generator.plot_time_series_comparison(real_data_df, st.session_state['synthetic_data'],
                                                                     selected_column)
                         st.plotly_chart(fig)
+                    except Exception as e:
+                        st.error(f"Error during time series comparison: {e}")
+
+            st.write("")
+            selected_column = st.selectbox("Distribution comparison - select column:",
+                                           time_series_cols)
+            if st.button("Plot Column Distribution"):
+                with st.spinner("Plotting..."):
+                    try:
+                        generator = st.session_state['generator']
+                        fig = generator.plot_column_distribution(real_data_df, st.session_state['synthetic_data'],
+                                                                 selected_column)
+                        st.set_option('deprecation.showPyplotGlobalUse', False)
+                        st.pyplot(fig)
                     except Exception as e:
                         st.error(f"Error during time series comparison: {e}")
 
