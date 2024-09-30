@@ -108,16 +108,6 @@ def generate_download_button_from_db(file_id):
     else:
         st.error("File not found in the database.")
 
-# def generate_downloadable_csv(dataframe):
-#     csv = dataframe.to_csv(index=False).encode('utf-8')
-#     return st.download_button(
-#         label="Download Synthetic Data as CSV",
-#         data=csv,
-#         file_name=f"synthetic_data_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.csv",
-#         mime='text/csv'
-#     )
-
-
 def generate_data_app():
     st.title("Synthetic Data Generator")
 
@@ -207,7 +197,7 @@ def generate_data_app():
             st.write("Synthetic Data Sample:")
             st.dataframe(st.session_state['synthetic_data_with_time'])
 
-            st.subheader("Step 5: Save or Evaluate Synthetic Data")
+            st.subheader("Step 5: Save Synthetic Data")
 
             if st.button("Save Synthetic Data to Database without ID column"):
                 with st.spinner('Saving synthetic data to database...'):
@@ -237,7 +227,9 @@ def generate_data_app():
                     except Exception as e:
                         st.error(f"Error saving data to database: {e}")
 
-            if st.button("Evaluate Synthetic Data"):
+            st.subheader("Step 6: Evaluate Synthetic Data")
+
+            if st.button("Quick Evaluate Synthetic Data"):
                 with st.spinner('Evaluating synthetic data...'):
                     try:
                         generator = st.session_state['generator']
@@ -273,8 +265,6 @@ def generate_data_app():
             # Plotting column comparisons: remove 'Measurement ID' from selected columns
             time_series_cols = selected_columns_for_generation.copy()
             time_series_cols.remove("Measurement ID")
-            selected_column = st.selectbox("Select a column for time series comparison",
-                                           time_series_cols)
 
             if st.button("Plot Distributions of Real vs. Synthetic Data"):
                 with st.spinner("Plotting..."):
@@ -287,6 +277,9 @@ def generate_data_app():
                     except Exception as e:
                         st.error(f"Error during time series comparison: {e}")
 
+            st.write("")
+            selected_column = st.selectbox("Time series comparison - select column:",
+                                           time_series_cols)
             if st.button("Plot Time Series Comparison"):
                 with st.spinner("Plotting time series comparison..."):
                     try:
@@ -296,7 +289,6 @@ def generate_data_app():
                         st.plotly_chart(fig)
                     except Exception as e:
                         st.error(f"Error during time series comparison: {e}")
-
 
 def data_app():
     st.header("Stored Synthetic Data Files")
